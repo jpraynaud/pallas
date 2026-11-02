@@ -195,7 +195,8 @@ tag_preserving_set!(NonEmptySet, "a nonempty set", 1);
 
 pub use crate::babbage::OperationalCert;
 
-/// `header_body` (`defs.cddl`) appends `block_body_contains_leios_cert` and `eb_announcement` to Conway's ten fields.
+/// `header_body` (`defs.cddl`) appends `block_body_contains_leios_cert` and `eb_announcement` to Conway's ten fields,
+/// both absent from the headers of cardano-node 11.2.0, which forges the Praos header in Dijkstra.
 #[derive(Serialize, Deserialize, Encode, Decode, Debug, PartialEq, Eq, Clone)]
 pub struct HeaderBody {
     #[n(0)]
@@ -229,11 +230,48 @@ pub struct HeaderBody {
     pub protocol_version: ProtocolVersion,
 
     // -- NEW IN DIJKSTRA
+    // Absent from the headers of cardano-node 11.2.0, which forges the Praos header in Dijkstra.
     #[n(10)]
-    pub block_body_contains_leios_cert: bool,
+    pub block_body_contains_leios_cert: Option<bool>,
 
     #[n(11)]
-    pub eb_announcement: Nullable<EbAnnouncement>,
+    #[cbor(with = "trailing_nullable")]
+    pub eb_announcement: Option<Nullable<EbAnnouncement>>,
+}
+
+/// Codec of a trailing `Nullable` array element that may be absent: a present
+/// null is `Some(Nullable::Null)` and only a missing element is `None`, which
+/// the derived decoder of an `Option` field would otherwise conflate.
+mod trailing_nullable {
+    use pallas_codec::minicbor::{self, Decode, Decoder, Encode, Encoder};
+    use pallas_codec::utils::Nullable;
+
+    pub fn decode<'b, Ctx, T>(
+        d: &mut Decoder<'b>,
+        ctx: &mut Ctx,
+    ) -> Result<Option<Nullable<T>>, minicbor::decode::Error>
+    where
+        T: Decode<'b, Ctx> + Clone,
+    {
+        Nullable::decode(d, ctx).map(Some)
+    }
+
+    pub fn encode<Ctx, T, W: minicbor::encode::Write>(
+        v: &Option<Nullable<T>>,
+        e: &mut Encoder<W>,
+        ctx: &mut Ctx,
+    ) -> Result<(), minicbor::encode::Error<W::Error>>
+    where
+        T: Encode<Ctx> + Clone,
+    {
+        match v {
+            Some(nullable) => nullable.encode(e, ctx),
+            None => {
+                e.null()?;
+                Ok(())
+            }
+        }
+    }
 }
 
 impl HeaderBody {

@@ -179,7 +179,7 @@ impl<'b> MultiEraHeader<'b> {
     pub fn block_body_contains_leios_cert(&self) -> Option<bool> {
         match self {
             #[cfg(feature = "unstable")]
-            MultiEraHeader::Dijkstra(x) => Some(x.header_body.block_body_contains_leios_cert),
+            MultiEraHeader::Dijkstra(x) => x.header_body.block_body_contains_leios_cert,
             _ => None,
         }
     }
@@ -190,7 +190,7 @@ impl<'b> MultiEraHeader<'b> {
     pub fn eb_announcement(&self) -> Option<&dijkstra::EbAnnouncement> {
         match self {
             MultiEraHeader::Dijkstra(x) => match &x.header_body.eb_announcement {
-                pallas_primitives::Nullable::Some(a) => Some(a),
+                Some(pallas_primitives::Nullable::Some(a)) => Some(a),
                 _ => None,
             },
             _ => None,
@@ -277,6 +277,21 @@ mod tests {
         assert_eq!(header.era(), Era::Dijkstra);
         assert!(header.as_dijkstra().is_some());
         assert_eq!(header.block_body_contains_leios_cert(), Some(false));
+        assert!(header.eb_announcement().is_none());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn a_cardano_node_11_2_0_header_has_no_leios_fields() {
+        let raw = header_of(include_str!("../../test_data/dijkstra16.block"));
+        let header = MultiEraHeader::decode(7, None, &raw).unwrap();
+
+        assert_eq!(header.era(), Era::Dijkstra);
+        assert_eq!(
+            header.block_body_contains_leios_cert(),
+            None,
+            "a ten field Dijkstra header has no certificate flag"
+        );
         assert!(header.eb_announcement().is_none());
     }
 
