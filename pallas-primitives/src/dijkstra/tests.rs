@@ -397,17 +397,23 @@ fn dijkstra_header_is_not_a_babbage_header() {
     }
 
     let empty: Header = header_of("dijkstra1");
-    assert!(!empty.header_body.block_body_contains_leios_cert);
+    assert_eq!(
+        empty.header_body.block_body_contains_leios_cert,
+        Some(false)
+    );
     assert!(matches!(
         empty.header_body.eb_announcement,
-        crate::Nullable::Null
+        Some(crate::Nullable::Null)
     ));
 
     let populated: Header = header_of("dijkstra8");
-    assert!(populated.header_body.block_body_contains_leios_cert);
+    assert_eq!(
+        populated.header_body.block_body_contains_leios_cert,
+        Some(true)
+    );
     assert!(matches!(
         populated.header_body.eb_announcement,
-        crate::Nullable::Some(_)
+        Some(crate::Nullable::Some(_))
     ));
 
     let width = |h: &Header| {
@@ -898,16 +904,25 @@ fn every_leios_fetch_citation_matches_the_leios_fetch_messages() {
     assert!(!defines_rule(LEIOS_FETCH_CDDL, "block_body"));
 }
 
+/// cardano-node 11.2.0 forges the ten field Praos header in Dijkstra, without
+/// the two Leios fields, so the header type reads it with both absent and
+/// gives every byte back.
 #[test]
-fn conway_header_is_refused_as_dijkstra() {
-    let conway = hex::decode(include_str!("../../../test_data/conway1.block")).unwrap();
-    let (_, block): (u16, crate::conway::Block) = minicbor::decode(&conway).unwrap();
+fn a_ten_field_header_decodes_as_dijkstra_without_the_leios_fields() {
+    let bytes = hex::decode(include_str!("../../../test_data/dijkstra16.block")).unwrap();
+    let (_, block): BlockWrapper = minicbor::decode(&bytes)
+        .unwrap_or_else(|e| panic!("dijkstra16 should decode as a Dijkstra block: {e:?}"));
     let raw = block.header.raw_cbor();
 
-    let decoded: Result<KeepRaw<'_, Header>, _> = minicbor::decode(raw);
-    assert!(
-        decoded.is_err(),
-        "a ten field Conway header must not decode as a Dijkstra header"
+    let header: Header = minicbor::decode(raw).unwrap();
+    assert_eq!(header.header_body.block_number, 154);
+    assert_eq!(header.header_body.protocol_version, (12, 0));
+    assert_eq!(header.header_body.block_body_contains_leios_cert, None);
+    assert_eq!(header.header_body.eb_announcement, None);
+    assert_eq!(
+        minicbor::to_vec(&header).unwrap(),
+        raw,
+        "the Dijkstra header type should give every byte of a ten field header back"
     );
 }
 
@@ -1258,8 +1273,9 @@ fn a_block_carrying_both_leios_fields_reads_both() {
     let header = header_of("dijkstra8");
 
     // The header's flag and the body's slot are independent, and they agree.
-    assert!(
+    assert_eq!(
         header.header_body.block_body_contains_leios_cert,
+        Some(true),
         "dijkstra8 is a block whose header says it carries a certificate"
     );
 
@@ -1282,7 +1298,7 @@ fn a_block_carrying_both_leios_fields_reads_both() {
         "a BLS12-381 signature is 48 bytes"
     );
 
-    let crate::Nullable::Some(announcement) = &header.header_body.eb_announcement else {
+    let Some(crate::Nullable::Some(announcement)) = &header.header_body.eb_announcement else {
         panic!("dijkstra8 must carry an endorser block announcement");
     };
     assert_eq!(
@@ -1306,9 +1322,15 @@ fn a_certificate_travels_without_an_announcement() {
     let block = block_of("dijkstra9");
     let header = header_of("dijkstra9");
 
-    assert!(header.header_body.block_body_contains_leios_cert);
+    assert_eq!(
+        header.header_body.block_body_contains_leios_cert,
+        Some(true)
+    );
     assert!(
-        matches!(header.header_body.eb_announcement, crate::Nullable::Null),
+        matches!(
+            header.header_body.eb_announcement,
+            Some(crate::Nullable::Null)
+        ),
         "dijkstra9 is the block that certifies without announcing"
     );
 
@@ -1341,12 +1363,13 @@ fn a_certificate_travels_without_an_announcement() {
     ));
     assert!(matches!(
         header_of("dijkstra11").header_body.eb_announcement,
-        crate::Nullable::Null
+        Some(crate::Nullable::Null)
     ));
-    assert!(
-        !header_of("dijkstra11")
+    assert_eq!(
+        header_of("dijkstra11")
             .header_body
-            .block_body_contains_leios_cert
+            .block_body_contains_leios_cert,
+        Some(false)
     );
 }
 
@@ -1367,7 +1390,7 @@ fn an_announced_size_reaches_the_five_byte_uint() {
         let block = block_of(name);
         let header = header_of(name);
 
-        let crate::Nullable::Some(announcement) = &header.header_body.eb_announcement else {
+        let Some(crate::Nullable::Some(announcement)) = &header.header_body.eb_announcement else {
             panic!("{name} must carry an endorser block announcement");
         };
         assert_eq!(announcement.eb_size, size, "{name}: the announced size");

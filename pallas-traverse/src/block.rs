@@ -365,6 +365,36 @@ mod tests {
 
     #[cfg(feature = "unstable")]
     #[test]
+    fn a_cardano_node_11_2_0_block_yields_its_sub_transaction() {
+        let cbor = dijkstra_block(include_str!("../../test_data/dijkstra16.block"));
+        let block = MultiEraBlock::decode(&cbor).expect("a cardano-node 11.2.0 block must decode");
+
+        assert_eq!(block.era(), Era::Dijkstra);
+        assert_eq!(block.number(), 154);
+        assert_eq!(block.slot(), 180);
+        assert_eq!(
+            block.hash().to_string(),
+            "27a8e2d79a1ea9bfb7906f1d049b6c81b7a77c08504ab45c8c49d50a5f109d64"
+        );
+        assert_eq!(block.header().block_body_contains_leios_cert(), None);
+        let txs = block.txs();
+        assert_eq!(txs.len(), 1);
+        assert_eq!(
+            txs[0].hash().to_string(),
+            "7ff742461176a381748e6c0e79f0c483a738e646da8422cdf8fa19deecac52cc"
+        );
+        assert!(txs[0].is_valid());
+        let subs = txs[0].sub_transactions();
+        assert_eq!(subs.len(), 1);
+        assert_eq!(
+            subs[0].hash().to_string(),
+            "d0fecaa8853c23d59b233149d11d4918cbfd5f8fb7892280d04ed84646e3f586"
+        );
+        assert!(subs[0].is_valid());
+    }
+
+    #[cfg(feature = "unstable")]
+    #[test]
     fn the_block_before_the_fork_is_conway() {
         let cbor = dijkstra_block(include_str!("../../test_data/conway5.block"));
         let block = MultiEraBlock::decode(&cbor).expect("invalid cbor");
