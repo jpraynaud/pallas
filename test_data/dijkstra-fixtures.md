@@ -126,3 +126,20 @@ the builder cannot drift apart.
 The two proposal files are read by `pallas-primitives` and by
 `pallas-traverse`, and the two transaction files by `pallas-utxorpc`, so one
 set of bytes serves every crate that needs the shape.
+
+## cardano-node 11.2.0 fixtures
+
+One block from a private devnet forged by the official cardano-node release,
+as lowercase hex of the block exactly as the node stored it, wrapper and all,
+no trailing newline.
+
+| | |
+| --- | --- |
+| network | private devnet, network magic 42 |
+| node release | cardano-node 11.2.0 with cardano-cli 11.6.0.0 |
+| header body | 10 fields, the Praos header without the Leios fields |
+| protocol version | 12.0 |
+
+| file | chunk/index | slot | block | hash | bytes | tag | txs | why |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dijkstra16.block | 00001/n/a | 180 | 154 | `27a8e2d79a1ea9bfb7906f1d049b6c81b7a77c08504ab45c8c49d50a5f109d64` | 1292 | 8 | 1 | a cardano-node 11.2.0 block with the Praos header and one transaction embedding one sub-transaction |
